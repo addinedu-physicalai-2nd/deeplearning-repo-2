@@ -12,7 +12,7 @@ app = Flask(__name__)
 
 UDP_HOST = "0.0.0.0"
 UDP_PORT = 5005
-AI_URL = "http://127.0.0.1:8001/infer"
+AI_URL = "http://192.168.0.4:8000/inference"
 UDP_HEADER_FORMAT = "!HBB"
 UDP_HEADER_SIZE = struct.calcsize(UDP_HEADER_FORMAT)
 FRAME_TIMEOUT = 1.0

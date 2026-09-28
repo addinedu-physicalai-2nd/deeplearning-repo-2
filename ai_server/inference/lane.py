@@ -1,4 +1,4 @@
-from ultralytics import YOLO
+'''from ultralytics import YOLO
 
 def load_lane_model():
     model = YOLO("models/lane.pt")
@@ -14,3 +14,11 @@ def run_lane(model, image):
 def post_process_lane(result):
 
     return 
+
+'''
+
+def load_lane_model():
+    return None  # 아직 로드할 모델 없음
+
+def run_lane(model, image):
+    return {"lane": []}  # 빈 결과지만 스키마는 맞춰서 반환
