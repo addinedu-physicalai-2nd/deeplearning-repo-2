@@ -21,7 +21,7 @@ UDP_HEADER_FORMAT = "!HBB"
 UDP_HEADER_SIZE = struct.calcsize(UDP_HEADER_FORMAT)
 FRAME_TIMEOUT = 1.0
 FRAME_BUFFER_SIZE = 10
-QT_HTTP_URL = os.environ.get("QT_HTTP_URL", "http://192.168.0.4:7000/frame")
+QT_HTTP_URL = os.environ.get("QT_HTTP_URL", "http://192.168.0.4:5006/frame")
 QT_HTTP_TIMEOUT = 2.0
 QT_BUFFER_SIZE = 2
 
