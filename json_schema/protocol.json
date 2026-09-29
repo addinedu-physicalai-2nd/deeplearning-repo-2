@@ -1,0 +1,120 @@
+{
+    "frame_id": 0,
+    
+    "detections": {
+
+        "pothole": [
+            {
+                "sequence_id": 0,
+                "confidence": 0.945,
+                "b_box": {
+                    "x_min": 120,
+                    "y_min": 350,
+                    "x_max": 310,
+                    "y_max": 510
+                },
+                "risk_level": "high"
+            },
+            {
+                "sequence_id": 1,
+                "confidence": 0.759,
+                "b_box": {
+                    "x_min": 450,
+                    "y_min": 120,
+                    "x_max": 510,
+                    "y_max": 230
+                },
+                "risk_level": "middle"
+            }
+        ],
+
+        "people": [
+            {
+            "sequence_id": 0,
+            "confidence": 0.836,
+            "b_box": {
+                "x_min": 160,
+                "y_min": 200,
+                "x_max": 250,
+                "y_max": 460
+                }
+            },
+            {
+                "sequence_id": 1,
+                "confidence": 0.917,
+                "b_box": {
+                    "x_min": 450,
+                    "y_min": 120,
+                    "x_max": 510,
+                    "y_max": 230
+                }
+            }
+        ],
+
+        "car": [
+            {
+            "sequence_id": 0,
+            "confidence": 0.765,
+            "b_box": {
+                "x_min": 160,
+                "y_min": 200,
+                "x_max": 250,
+                "y_max": 460
+                }
+            },
+            {
+                "sequence_id": 1,
+                "confidence": 0.902,
+                "b_box": {
+                    "x_min": 450,
+                    "y_min": 120,
+                    "x_max": 510,
+                    "y_max": 230
+                }
+            }
+        ],
+        
+        "trafficCone": [
+            {
+            "sequence_id": 0,
+            "confidence": 0.799,
+            "b_box": {
+                "x_min": 160,
+                "y_min": 200,
+                "x_max": 250,
+                "y_max": 460
+                }
+            },
+            {
+                "sequence_id": 1,
+                "confidence": 0.938,
+                "b_box": {
+                    "x_min": 450,
+                    "y_min": 120,
+                    "x_max": 510,
+                    "y_max": 230
+                }
+            }
+        ],
+
+        "lane": [
+            {
+                "class_id": 0,
+                "confidence": 0.821,
+                "polygons":[]
+            },
+            {
+                "class_id": 1,
+                "confidence": 0.821,
+                "polygons":[]
+            },
+            {
+                "class_id": 3,
+                "confidence": 0.821,
+                "polygons":[]
+            }
+        ],
+
+        "line_center": []
+    }
+}
