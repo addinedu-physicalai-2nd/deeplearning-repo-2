@@ -114,4 +114,12 @@ def risk_level(
         area = round(abs(cv2.contourArea(transformed_box.astype(np.float32))))
         areas.append(area)
 
-    return areas
+    level=''
+    if area<1500:
+        level='low'
+    elif 1500<=area<=2000:
+        level='middle'
+    elif area>2000:
+        level='high'
+
+    return level
