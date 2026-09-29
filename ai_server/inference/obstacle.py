@@ -11,7 +11,7 @@ def run_obstacle(model, image):
 
 
 #작성 필요
-def post_process_detections(result):
+def post_process_obstacle(result):
     grouped = {"people": [], "car": [], "trafficCone": []}
     counters = {"people": 0, "car": 0, "trafficCone": 0}
 
