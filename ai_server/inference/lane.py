@@ -3,13 +3,24 @@ import cv2
 import numpy as np
 import torch
 import segmentation_models_pytorch as smp
+from pathlib import Path
 
-CKPT = Path.home() / "Desktop/checkpoint"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
+
+def _resolve_ckpt_path(txt_name):
+    drive_dir = Path((MODELS_DIR / txt_name).read_text().strip())
+    candidates = list(drive_dir.glob("*.pth"))
+    if not candidates:
+        raise FileNotFoundError(f"{drive_dir} 안에 pth 파일이 없음")
+    return candidates[0]
 
 def load_lane_model():
     m = smp.DeepLabV3Plus(encoder_name="resnet34", encoder_weights=None, in_channels=3, classes=4)
-    ckpt = torch.load(CKPT / "line.pth", map_location=DEVICE, weights_only=False)
+    ckpt_path = _resolve_ckpt_path("model_drive_link.txt")   # 실제 txt 파일명으로 바꿔줘
+    ckpt = torch.load(ckpt_path, map_location=DEVICE, weights_only=False)
     sd = ckpt["model_state_dict"] if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
     sd = {k.replace("module.", "", 1): v for k, v in sd.items()}
     m.load_state_dict(sd)

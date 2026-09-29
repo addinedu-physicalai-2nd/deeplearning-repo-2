@@ -1,7 +1,11 @@
 from ultralytics import YOLO
+from pathlib import Path
+MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 
 def load_obstacle_model():
-    model = YOLO("models/obstacle.pt")
+    drive_dir = Path((MODELS_DIR / "model_drive_link.txt").read_text().strip())
+    ckpt_path = drive_dir / "obstacle.pt"
+    model = YOLO(str(ckpt_path))
     model.to("cuda")
     return model
 

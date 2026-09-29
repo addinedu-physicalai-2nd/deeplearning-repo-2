@@ -1,10 +1,14 @@
+from pathlib import Path
 from ultralytics import YOLO
 
+MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
+
 def load_pothole_model():
-    model = YOLO("models/pothole.pt")
+    drive_dir = Path((MODELS_DIR / "model_drive_link.txt").read_text().strip())
+    ckpt_path = drive_dir / "pothole.pt"
+    model = YOLO(str(ckpt_path))
     model.to("cuda")
     return model
-
 def run_pothole(model, image):
     result = model.predict(image)
     return post_process_pothole(result,image)
