@@ -21,7 +21,7 @@ class UdpImageSender(Node):
     def __init__(self):
         super().__init__('udp_image_sender')
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server_addr = ('192.168.0.4', 5005)
+        self.server_addr = ('192.168.0.224', 5005)
 
         self.subscription = self.create_subscription(
             Image,
