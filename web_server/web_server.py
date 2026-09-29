@@ -108,10 +108,9 @@ def forward_frames_to_ai():
         try:
             response = requests.post(
                 AI_URL,
-                data=image_data,
-                headers={
-                    "Content-Type": "image/jpeg",
-                    "X-Frame-ID": str(frame_id),
+                params={"frame_id": frame_id},
+                files={
+                    "file": ("frame.jpg", image_data, "image/jpeg"),
                 },
                 timeout=3,
             )
