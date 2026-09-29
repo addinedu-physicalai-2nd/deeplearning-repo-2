@@ -25,7 +25,7 @@ import cv2
 import numpy as np
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parent          # = ai_server/
 CALIBRATION_PATH = PROJECT_ROOT / "perspective_calibration.npz"
 
 
@@ -65,18 +65,29 @@ def _transform_for_image(
     return homography @ resize_to_source
 
 
+def _area_to_level(area: int) -> str:
+    if area < 1500:
+        return "low"
+    if area <= 2000:
+        return "middle"
+    return "high"
+
+
 def risk_level(
     image: np.ndarray,
-    potholes: list[tuple[int, int, int, int, float]],
-) -> list[int]:
-    """검출 박스를 조감도에 투영하고 면적 목록을 제곱 픽셀로 반환한다.
+    potholes: list[tuple[float, float, float, float, float]],
+) -> list[str]:
+    """검출 박스를 조감도에 투영해 박스별 위험도('low'/'middle'/'high') 목록을 반환한다.
 
-    potholes의 각 항목은 (x1, y1, x2, y2, confidence) 튜플이어야 한다.
+    potholes의 각 항목은 (x1, y1, x2, y2, confidence) 튜플이어야 하며,
+    반환 리스트는 potholes와 같은 순서·같은 길이다. 빈 리스트면 빈 리스트를 반환한다.
     """
     if not isinstance(image, np.ndarray) or image.ndim < 2:
         raise ValueError("image는 OpenCV 이미지(np.ndarray)여야 합니다.")
     if not isinstance(potholes, list):
         raise ValueError("potholes는 포트홀 튜플을 담은 list여야 합니다.")
+    if not potholes:
+        return []
 
     image_height, image_width = image.shape[:2]
     if image_width <= 0 or image_height <= 0:
@@ -89,7 +100,7 @@ def risk_level(
         (image_width, image_height),
     )
 
-    areas = []
+    levels = []
     for pothole in potholes:
         if not isinstance(pothole, tuple) or len(pothole) != 5:
             raise ValueError(
@@ -112,14 +123,6 @@ def risk_level(
         )
         transformed_box = cv2.perspectiveTransform(box_points, transform)[0]
         area = round(abs(cv2.contourArea(transformed_box.astype(np.float32))))
-        areas.append(area)
+        levels.append(_area_to_level(area))
 
-    level=''
-    if area<1500:
-        level='low'
-    elif 1500<=area<=2000:
-        level='middle'
-    elif area>2000:
-        level='high'
-
-    return level
+    return levels

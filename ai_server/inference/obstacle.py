@@ -1,10 +1,8 @@
 from ultralytics import YOLO
-from pathlib import Path
-MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
+from inference.model_files import ensure_models
 
 def load_obstacle_model():
-    drive_dir = Path((MODELS_DIR / "model_drive_link.txt").read_text().strip())
-    ckpt_path = drive_dir / "obstacle.pt"
+    ckpt_path = ensure_models() / "obstacle.pt"
     model = YOLO(str(ckpt_path))
     model.to("cuda")
     return model
