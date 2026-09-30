@@ -5,6 +5,10 @@ import queue
 
 import requests
 
+from web_server.network_modules.connection_events import (
+    ConnectionEventLogger,
+)
+
 
 def forward_frames_to_monitoring(
     monitoring_buffer,
@@ -16,6 +20,12 @@ def forward_frames_to_monitoring(
     session_factory=requests.Session,
 ):
     """원본 JPEG와 같은 프레임의 AI JSON을 Monitoring으로 전송한다."""
+    connection = ConnectionEventLogger(
+        "Qt",
+        state,
+        "qt_connected",
+        logger,
+    )
     with session_factory() as session:
         while not stop_event.is_set():
             try:
@@ -47,14 +57,19 @@ def forward_frames_to_monitoring(
                 response.raise_for_status()
 
                 state.update(qt_frame_id=frame_id, qt_error=None)
-                logger.info("Frame %s forwarded to Monitoring", frame_id)
-            except (requests.RequestException, TypeError, ValueError) as error:
+                connection.connection_succeeded(monitoring_url)
+            except (requests.ConnectionError, requests.Timeout) as error:
                 state.update(qt_error=f"frame {frame_id}: {error}")
-                logger.warning(
-                    "Failed to forward frame %s to Monitoring: %s",
-                    frame_id,
-                    error,
-                )
+                if connection.connected:
+                    connection.connection_lost(error)
+                else:
+                    connection.send_failed(error)
+            except requests.RequestException as error:
+                state.update(qt_error=f"frame {frame_id}: {error}")
+                connection.receive_failed(error)
+            except (TypeError, ValueError) as error:
+                state.update(qt_error=f"frame {frame_id}: {error}")
+                connection.send_failed(error)
             finally:
                 monitoring_buffer.task_done()
                 state.update(qt_buffer_size=monitoring_buffer.qsize())

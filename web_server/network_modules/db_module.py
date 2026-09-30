@@ -426,7 +426,6 @@ def store_ai_results(
                     db_frame_id=frame_id,
                     db_error=None,
                 )
-                logger.info("Frame %s stored in MySQL", frame_id)
             except (KeyError, TypeError, ValueError) as error:
                 state.update(db_error=f"frame {frame_id}: {error}")
                 logger.error("Invalid DB data for frame %s: %s", frame_id, error)

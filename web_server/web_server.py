@@ -24,6 +24,7 @@ UDP_HOST = "0.0.0.0"
 UDP_PORT = 5005
 UDP_HEADER_FORMAT = "!HBB"
 FRAME_TIMEOUT = 1.0
+ROBOT_DISCONNECT_TIMEOUT = 3.0
 FRAME_BUFFER_SIZE = 10
 
 AI_URL = os.environ.get(
@@ -64,12 +65,16 @@ class RuntimeState:
         self._lock = threading.Lock()
         self._values = {
             "received_frame_id": None,
+            "robot_connected": False,
+            "robot_error": None,
             "ai_frame_id": None,
+            "ai_connected": False,
             "robot_address": None,
             "buffer_size": 0,
             "ai_result": None,
             "error": None,
             "qt_frame_id": None,
+            "qt_connected": False,
             "qt_buffer_size": 0,
             "qt_dropped_frames": 0,
             "qt_error": None,
@@ -226,6 +231,7 @@ def main():
             UDP_PORT,
             UDP_HEADER_FORMAT,
             FRAME_TIMEOUT,
+            ROBOT_DISCONNECT_TIMEOUT,
         ),
         start_worker(
             "ai-client",

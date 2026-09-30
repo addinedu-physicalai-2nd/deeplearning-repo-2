@@ -20,11 +20,18 @@ def configure_logging(app):
     queue_handler = QueueHandler(log_queue)
 
     logger = logging.getLogger("web_server.refactored")
-    for target_logger in (logger, app.logger, logging.getLogger("werkzeug")):
+    for target_logger in (logger, app.logger):
         target_logger.handlers.clear()
         target_logger.addHandler(queue_handler)
         target_logger.setLevel(logging.INFO)
         target_logger.propagate = False
+
+    # Dashboard polling 등 정상 HTTP 요청마다 찍히는 access log는 숨긴다.
+    werkzeug_logger = logging.getLogger("werkzeug")
+    werkzeug_logger.handlers.clear()
+    werkzeug_logger.addHandler(queue_handler)
+    werkzeug_logger.setLevel(logging.WARNING)
+    werkzeug_logger.propagate = False
 
     listener = QueueListener(
         log_queue,

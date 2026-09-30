@@ -4,6 +4,10 @@ import queue
 
 import requests
 
+from web_server.network_modules.connection_events import (
+    ConnectionEventLogger,
+)
+
 
 def _put_latest(target_buffer, item):
     dropped = False
@@ -60,6 +64,12 @@ def forward_frames_to_ai(
     session_factory=requests.Session,
 ):
     """AI 결과를 Monitoring에는 JPEG와, DB에는 JSON만 전달한다."""
+    connection = ConnectionEventLogger(
+        "AI",
+        state,
+        "ai_connected",
+        logger,
+    )
     with session_factory() as session:
         while not stop_event.is_set():
             try:
@@ -103,17 +113,28 @@ def forward_frames_to_ai(
                 if db_dropped:
                     state.increment("db_dropped_frames")
 
-                logger.info("Frame %s processed by AI server", frame_id)
-            except (requests.RequestException, TypeError, ValueError) as error:
+                connection.connection_succeeded(ai_url)
+            except (requests.ConnectionError, requests.Timeout) as error:
                 state.update(
                     ai_result=None,
                     error=f"frame {frame_id}: {error}",
                 )
-                logger.error(
-                    "Failed to forward frame %s to AI server: %s",
-                    frame_id,
-                    error,
+                if connection.connected:
+                    connection.connection_lost(error)
+                else:
+                    connection.send_failed(error)
+            except requests.RequestException as error:
+                state.update(
+                    ai_result=None,
+                    error=f"frame {frame_id}: {error}",
                 )
+                connection.receive_failed(error)
+            except (TypeError, ValueError) as error:
+                state.update(
+                    ai_result=None,
+                    error=f"frame {frame_id}: {error}",
+                )
+                connection.receive_failed(error)
             finally:
                 frame_buffer.task_done()
                 state.update(buffer_size=frame_buffer.qsize())
