@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ko" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Road Guard Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/tabler/tabler.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body
+  data-summary-url="{{ url_for('dashboard_summary') }}"
+  data-status-url="{{ url_for('status') }}"
+  data-table-url="{{ url_for('table_data', table_name='TABLE_NAME') }}"
+>
+  <div class="page">
+    <aside class="navbar navbar-vertical navbar-expand-lg dashboard-sidebar" data-bs-theme="dark">
+      <div class="container-fluid">
+        <div class="navbar-brand navbar-brand-autodark">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 19h14M7 16l2-8h6l2 8M8 12h8M10 5h4"/>
+            </svg>
+          </span>
+          <span>Road Guard</span>
+        </div>
+
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#sidebar-menu"
+          aria-controls="sidebar-menu"
+          aria-expanded="false"
+          aria-label="메뉴 열기"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="sidebar-menu">
+          <div class="sidebar-section-label">TABLES</div>
+          <ul class="navbar-nav" id="table-navigation">
+            <li class="nav-item">
+              <button class="nav-link active" type="button" data-table="frame_summary">
+                <span class="nav-link-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 5h16v14H4zM4 10h16M9 5v14"/>
+                  </svg>
+                </span>
+                <span class="nav-link-title">Frame Summary</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" type="button" data-table="pothole">
+                <span class="nav-link-icon"><span class="nav-dot bg-red"></span></span>
+                <span class="nav-link-title">Pothole</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" type="button" data-table="people">
+                <span class="nav-link-icon"><span class="nav-dot bg-blue"></span></span>
+                <span class="nav-link-title">People</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" type="button" data-table="trafficCone">
+                <span class="nav-link-icon"><span class="nav-dot bg-orange"></span></span>
+                <span class="nav-link-title">Traffic Cone</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" type="button" data-table="car">
+                <span class="nav-link-icon"><span class="nav-dot bg-cyan"></span></span>
+                <span class="nav-link-title">Car</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" type="button" data-table="lane">
+                <span class="nav-link-icon"><span class="nav-dot bg-purple"></span></span>
+                <span class="nav-link-title">Lane</span>
+              </button>
+            </li>
+          </ul>
+
+          <div class="sidebar-status mt-auto">
+            <div class="sidebar-section-label">SYSTEM STATUS</div>
+            <div class="status-line">
+              <span><span class="status-dot" id="udp-status-dot"></span>UDP</span>
+              <span id="udp-status-text">대기</span>
+            </div>
+            <div class="status-line">
+              <span><span class="status-dot" id="ai-status-dot"></span>AI Server</span>
+              <span id="ai-status-text">대기</span>
+            </div>
+            <div class="status-line">
+              <span><span class="status-dot" id="db-status-dot"></span>Database</span>
+              <span id="db-status-text">대기</span>
+            </div>
+            <div class="status-line">
+              <span><span class="status-dot" id="monitoring-status-dot"></span>Monitoring</span>
+              <span id="monitoring-status-text">대기</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="page-wrapper">
+      <header class="navbar navbar-expand-md dashboard-header d-print-none">
+        <div class="container-xl">
+          <div>
+            <div class="page-pretitle">ROBOT MONITORING</div>
+            <h1 class="page-title">Detection Dashboard</h1>
+          </div>
+          <div class="header-actions">
+            <span class="last-updated" id="last-updated">아직 갱신되지 않음</span>
+            <button class="btn btn-primary" id="refresh-button" type="button">
+              <svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>
+              </svg>
+              새로고침
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div class="container-xl">
+          <div class="alert alert-danger d-none" id="dashboard-error" role="alert"></div>
+
+          <section class="row row-cards metric-grid" aria-label="누적 검출 요약">
+            <div class="col-6 col-md-4 col-xl-2">
+              <article class="card metric-card metric-frame">
+                <div class="card-body">
+                  <div class="metric-label">Frames</div>
+                  <div class="metric-value" id="metric-frame">0</div>
+                  <div class="metric-caption">저장된 프레임</div>
+                </div>
+              </article>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+              <article class="card metric-card metric-pothole">
+                <div class="card-body">
+                  <div class="metric-label">Pothole</div>
+                  <div class="metric-value" id="metric-pothole">0</div>
+                  <div class="metric-caption">누적 검출</div>
+                </div>
+              </article>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+              <article class="card metric-card metric-people">
+                <div class="card-body">
+                  <div class="metric-label">People</div>
+                  <div class="metric-value" id="metric-people">0</div>
+                  <div class="metric-caption">누적 검출</div>
+                </div>
+              </article>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+              <article class="card metric-card metric-cone">
+                <div class="card-body">
+                  <div class="metric-label">Traffic Cone</div>
+                  <div class="metric-value" id="metric-cone">0</div>
+                  <div class="metric-caption">누적 검출</div>
+                </div>
+              </article>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+              <article class="card metric-card metric-car">
+                <div class="card-body">
+                  <div class="metric-label">Car</div>
+                  <div class="metric-value" id="metric-car">0</div>
+                  <div class="metric-caption">누적 검출</div>
+                </div>
+              </article>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+              <article class="card metric-card metric-lane">
+                <div class="card-body">
+                  <div class="metric-label">Lane</div>
+                  <div class="metric-value" id="metric-lane">0</div>
+                  <div class="metric-caption">누적 검출</div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="card data-card mt-4" aria-labelledby="table-title">
+            <div class="card-header table-toolbar">
+              <div>
+                <h2 class="card-title" id="table-title">Frame Summary</h2>
+                <div class="text-secondary table-description" id="table-description">
+                  프레임별 객체 검출 개수를 보여줍니다.
+                </div>
+              </div>
+              <form class="table-filters" id="filter-form">
+                <label class="form-label visually-hidden" for="frame-filter">프레임 번호</label>
+                <div class="input-icon">
+                  <span class="input-icon-addon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+                    </svg>
+                  </span>
+                  <input
+                    class="form-control"
+                    id="frame-filter"
+                    type="number"
+                    min="0"
+                    inputmode="numeric"
+                    placeholder="Frame ID"
+                  >
+                </div>
+                <select class="form-select" id="page-size" aria-label="페이지당 행 개수">
+                  <option value="10">10개</option>
+                  <option value="20" selected>20개</option>
+                  <option value="50">50개</option>
+                  <option value="100">100개</option>
+                </select>
+                <button class="btn btn-outline-primary" type="submit">검색</button>
+                <button class="btn btn-ghost-secondary" id="filter-reset" type="button">초기화</button>
+              </form>
+            </div>
+
+            <div class="table-responsive table-container">
+              <table class="table table-vcenter card-table table-hover">
+                <thead id="data-table-head"></thead>
+                <tbody id="data-table-body">
+                  <tr><td class="empty-cell">데이터를 불러오는 중입니다.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="card-footer table-footer">
+              <div class="text-secondary" id="row-count">0개 행</div>
+              <div class="pagination-controls">
+                <button class="btn btn-icon btn-outline-secondary" id="previous-page" type="button" aria-label="이전 페이지">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m15 6-6 6 6 6"/>
+                  </svg>
+                </button>
+                <span id="page-indicator">1 / 1</span>
+                <button class="btn btn-icon btn-outline-secondary" id="next-page" type="button" aria-label="다음 페이지">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m9 6 6 6-6 6"/>
+                  </svg>
+                </button>
+              </div>
+              <label class="form-check form-switch mb-0">
+                <input class="form-check-input" id="auto-refresh" type="checkbox" checked>
+                <span class="form-check-label">5초 자동 갱신</span>
+              </label>
+            </div>
+          </section>
+
+          <footer class="dashboard-footer">
+            Road Guard Monitoring · UI powered by Tabler 1.6.0
+          </footer>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='vendor/tabler/tabler.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

@@ -1,261 +1,230 @@
-import json
-import logging
+"""기능별 모듈을 사용하는 리팩토링 Web Server."""
+
 import os
 import queue
-import socket
-import struct
 import threading
-import time
-from logging.handlers import QueueHandler, QueueListener
 
-import requests
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template, request
 
+from web_server.network_modules.ai_module import forward_frames_to_ai
+from web_server.network_modules.db_module import (
+    fetch_dashboard_summary,
+    fetch_table_page,
+    store_ai_results,
+)
+from web_server.network_modules.logging_module import configure_logging
+from web_server.network_modules.monitoring_module import (
+    forward_frames_to_monitoring,
+)
+from web_server.network_modules.udp_module import receive_frames
 
-app = Flask(__name__)
 
 UDP_HOST = "0.0.0.0"
 UDP_PORT = 5005
-AI_URL = "http://192.168.0.4:8000/inference"
 UDP_HEADER_FORMAT = "!HBB"
-UDP_HEADER_SIZE = struct.calcsize(UDP_HEADER_FORMAT)
 FRAME_TIMEOUT = 1.0
 FRAME_BUFFER_SIZE = 10
-QT_HTTP_URL = os.environ.get("QT_HTTP_URL", "http://192.168.0.4:5006/frame")
-QT_HTTP_TIMEOUT = 2.0
-QT_BUFFER_SIZE = 2
 
-frame_buffer = queue.Queue(maxsize=FRAME_BUFFER_SIZE)
-qt_buffer = queue.Queue(maxsize=QT_BUFFER_SIZE)
-udp_traffic_logged = threading.Event()
+AI_URL = os.environ.get(
+    "AI_URL",
+    "http://192.168.0.4:8000/inference",
+)
+AI_TIMEOUT = 3.0
 
-latest_status = {
-    "received_frame_id": None,
-    "ai_frame_id": None,
-    "robot_address": None,
-    "buffer_size": 0,
-    "ai_result": None,
-    "error": None,
-    "qt_frame_id": None,
-    "qt_buffer_size": 0,
-    "qt_dropped_frames": 0,
-    "qt_error": None,
+MONITORING_URL = os.environ.get(
+    "MONITORING_URL",
+    os.environ.get("QT_HTTP_URL", "http://192.168.0.4:5006/frame"),
+)
+MONITORING_TIMEOUT = 2.0
+MONITORING_BUFFER_SIZE = 2
+
+DB_HOST = "localhost"
+DB_PORT = 3306
+DB_USER = "root"
+DB_PASSWORD = "1234"
+DB_NAME = "road_gaurd"
+DB_BUFFER_SIZE = 100
+DB_RETRY_INTERVAL = 5.0
+DB_CONFIG = {
+    "host": DB_HOST,
+    "port": DB_PORT,
+    "user": DB_USER,
+    "password": DB_PASSWORD,
+    "database": DB_NAME,
 }
 
-
-def configure_logging():
-    """로그 출력은 전용 스레드가 처리하도록 큐 기반 로깅을 시작한다."""
-    formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)-7s | %(threadName)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
-    console_handler.terminator = "\n\n"
-
-    log_queue = queue.Queue()
-    queue_handler = QueueHandler(log_queue)
-
-    for logger in (app.logger, logging.getLogger("werkzeug")):
-        logger.handlers.clear()
-        logger.addHandler(queue_handler)
-        logger.setLevel(logging.INFO)
-        logger.propagate = False
-
-    listener = QueueListener(
-        log_queue,
-        console_handler,
-        respect_handler_level=True,
-    )
-    listener.start()
-    return listener
+STATUS_HOST = "0.0.0.0"
+STATUS_PORT = 5000
 
 
-def receive_udp_frame(sock, pending_frames):
-    """분할된 UDP 패킷을 frame_id별로 모아 JPEG 한 장으로 반환한다."""
-    while True:
-        packet, robot_address = sock.recvfrom(65535)
-        now = time.monotonic()
+class RuntimeState:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._values = {
+            "received_frame_id": None,
+            "ai_frame_id": None,
+            "robot_address": None,
+            "buffer_size": 0,
+            "ai_result": None,
+            "error": None,
+            "qt_frame_id": None,
+            "qt_buffer_size": 0,
+            "qt_dropped_frames": 0,
+            "qt_error": None,
+            "db_connected": False,
+            "db_frame_id": None,
+            "db_buffer_size": 0,
+            "db_dropped_frames": 0,
+            "db_error": None,
+        }
 
-        for key, frame in list(pending_frames.items()):
-            if now - frame["updated_at"] > FRAME_TIMEOUT:
-                del pending_frames[key]
+    def update(self, **values):
+        with self._lock:
+            self._values.update(values)
 
-        if len(packet) <= UDP_HEADER_SIZE:
-            continue
+    def increment(self, key, amount=1):
+        with self._lock:
+            self._values[key] += amount
 
-        frame_id, chunk_idx, total_chunks = struct.unpack(
-            UDP_HEADER_FORMAT, packet[:UDP_HEADER_SIZE]
-        )
-        if total_chunks == 0 or chunk_idx >= total_chunks:
-            continue
-
-        if not udp_traffic_logged.is_set():
-            udp_traffic_logged.set()
-            app.logger.info(
-                "UDP communication active: first packet received from %s:%s",
-                robot_address[0],
-                robot_address[1],
-            )
-
-        key = (robot_address, frame_id)
-        frame = pending_frames.get(key)
-        if frame is None or frame["total_chunks"] != total_chunks:
-            frame = {
-                "total_chunks": total_chunks,
-                "chunks": {},
-                "updated_at": now,
-            }
-            pending_frames[key] = frame
-
-        frame["chunks"][chunk_idx] = packet[UDP_HEADER_SIZE:]
-        frame["updated_at"] = now
-
-        if len(frame["chunks"]) != total_chunks:
-            continue
-
-        image_data = b"".join(frame["chunks"][idx] for idx in range(total_chunks))
-        del pending_frames[key]
-
-        if not image_data.startswith(b"\xff\xd8"):
-            app.logger.warning("Ignored invalid JPEG frame from %s", robot_address)
-            continue
-
-        return image_data, robot_address, frame_id
+    def snapshot(self):
+        with self._lock:
+            return dict(self._values)
 
 
-def receive_frames():
-    """UDP 프레임을 계속 수신하여 프레임 버퍼에 저장한다."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((UDP_HOST, UDP_PORT))
-    pending_frames = {}
-
-    while True:
-        image_data, robot_address, frame_id = receive_udp_frame(sock, pending_frames)
-
-        latest_status["received_frame_id"] = frame_id
-        latest_status["robot_address"] = robot_address[0]
-
-        if frame_buffer.full():
-            try:
-                frame_buffer.get_nowait()
-                frame_buffer.task_done()
-            except queue.Empty:
-                pass
-
-        frame_buffer.put((frame_id, image_data))
-        latest_status["buffer_size"] = frame_buffer.qsize()
+app = Flask(__name__)
+state = RuntimeState()
+frame_buffer = queue.Queue(maxsize=FRAME_BUFFER_SIZE)
+monitoring_buffer = queue.Queue(maxsize=MONITORING_BUFFER_SIZE)
+db_buffer = queue.Queue(maxsize=DB_BUFFER_SIZE)
 
 
-def enqueue_frame_for_qt(frame_id, image_data, ai_result):
-    """Qt 전송 대기열에 최신 결과를 넣되 AI 처리 스레드를 기다리게 하지 않는다."""
-    if qt_buffer.full():
-        try:
-            qt_buffer.get_nowait()
-            qt_buffer.task_done()
-            latest_status["qt_dropped_frames"] += 1
-        except queue.Empty:
-            pass
-
-    try:
-        qt_buffer.put_nowait((frame_id, image_data, ai_result))
-    except queue.Full:
-        # 소비자 스레드와의 경합으로 큐가 다시 찬 경우 현재 프레임을 버린다.
-        latest_status["qt_dropped_frames"] += 1
-
-    latest_status["qt_buffer_size"] = qt_buffer.qsize()
-
-
-def forward_frames_to_qt():
-    """AI 처리가 끝난 프레임과 JSON을 독립적으로 Qt HTTP 서버에 전달한다."""
-    while True:
-        frame_id, image_data, ai_result = qt_buffer.get()
-        latest_status["qt_buffer_size"] = qt_buffer.qsize()
-
-        try:
-            result_data = json.dumps(
-                ai_result,
-                ensure_ascii=False,
-                separators=(",", ":"),
-            ).encode("utf-8")
-            response = requests.post(
-                QT_HTTP_URL,
-                files={
-                    "frame": ("frame.jpg", image_data, "image/jpeg"),
-                    "result": ("result.json", result_data, "application/json"),
-                },
-                timeout=QT_HTTP_TIMEOUT,
-            )
-            response.raise_for_status()
-
-            latest_status["qt_frame_id"] = frame_id
-            latest_status["qt_error"] = None
-            app.logger.info("Frame %s forwarded to HTTP receiver", frame_id)
-        except (requests.RequestException, TypeError, ValueError) as error:
-            # Qt 장애는 기록만 하고 UDP 수신 및 AI 통신에는 전파하지 않는다.
-            latest_status["qt_error"] = f"frame {frame_id}: {error}"
-            app.logger.warning(
-                "Failed to forward frame %s to HTTP receiver: %s",
-                frame_id,
-                error,
-            )
-        finally:
-            qt_buffer.task_done()
-            latest_status["qt_buffer_size"] = qt_buffer.qsize()
-
-
-def forward_frames_to_ai():
-    """버퍼의 프레임을 하나씩 꺼내 AI 서버에 전달한다."""
-    while True:
-        frame_id, image_data = frame_buffer.get()
-        latest_status["buffer_size"] = frame_buffer.qsize()
-
-        try:
-            response = requests.post(
-                AI_URL,
-                params={"frame_id": frame_id},
-                files={
-                    "file": ("frame.jpg", image_data, "image/jpeg"),
-                },
-                timeout=3,
-            )
-            response.raise_for_status()
-
-            ai_result = response.json()
-            if ai_result.get("frame_id") != frame_id:
-                raise ValueError(
-                    f"frame_id 불일치: 요청={frame_id}, 응답={ai_result.get('frame_id')}"
-                )
-
-            latest_status["ai_frame_id"] = frame_id
-            latest_status["ai_result"] = ai_result
-            latest_status["error"] = None
-            enqueue_frame_for_qt(frame_id, image_data, ai_result)
-            app.logger.info("Frame %s processed by AI server", frame_id)
-
-        except (requests.RequestException, KeyError, TypeError, ValueError) as error:
-            latest_status["ai_result"] = None
-            latest_status["error"] = f"frame {frame_id}: {error}"
-            app.logger.error("Failed to forward frame %s: %s", frame_id, error)
-        finally:
-            frame_buffer.task_done()
-            latest_status["buffer_size"] = frame_buffer.qsize()
+@app.get("/")
+def dashboard():
+    return render_template("dashboard.html")
 
 
 @app.get("/status")
 def status():
-    """마지막 프레임의 AI 처리 상태를 반환한다."""
-    return jsonify(latest_status)
+    return jsonify(state.snapshot())
+
+
+@app.get("/api/dashboard/summary")
+def dashboard_summary():
+    try:
+        return jsonify(fetch_dashboard_summary(DB_CONFIG))
+    except Exception as error:
+        app.logger.error("Failed to read dashboard summary: %s", error)
+        return jsonify({"error": "DB 요약 데이터를 조회하지 못했습니다."}), 503
+
+
+@app.get("/api/tables/<table_name>")
+def table_data(table_name):
+    page = request.args.get("page", default=1, type=int)
+    page_size = request.args.get("page_size", default=20, type=int)
+    frame_value = request.args.get("frame", default="").strip()
+
+    if page is None or page_size is None:
+        return jsonify({"error": "잘못된 페이지 값입니다."}), 400
+    try:
+        frame_id = int(frame_value) if frame_value else None
+    except ValueError:
+        return jsonify({"error": "잘못된 프레임 번호입니다."}), 400
+    if frame_id is not None and frame_id < 0:
+        return jsonify({"error": "프레임 번호는 0 이상이어야 합니다."}), 400
+
+    try:
+        return jsonify(
+            fetch_table_page(
+                DB_CONFIG,
+                table_name,
+                page=page,
+                page_size=page_size,
+                frame_id=frame_id,
+            )
+        )
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    except Exception as error:
+        app.logger.error("Failed to read table %s: %s", table_name, error)
+        return jsonify({"error": "DB 테이블을 조회하지 못했습니다."}), 503
+
+
+def start_worker(name, target, *args):
+    thread = threading.Thread(
+        target=target,
+        args=args,
+        name=name,
+        daemon=True,
+    )
+    thread.start()
+    return thread
+
+
+def main():
+    logger, log_listener = configure_logging(app)
+    stop_event = threading.Event()
+
+    workers = [
+        start_worker(
+            "udp-receiver",
+            receive_frames,
+            frame_buffer,
+            state,
+            logger,
+            stop_event,
+            UDP_HOST,
+            UDP_PORT,
+            UDP_HEADER_FORMAT,
+            FRAME_TIMEOUT,
+        ),
+        start_worker(
+            "ai-client",
+            forward_frames_to_ai,
+            frame_buffer,
+            monitoring_buffer,
+            db_buffer,
+            state,
+            logger,
+            stop_event,
+            AI_URL,
+            AI_TIMEOUT,
+        ),
+        start_worker(
+            "monitoring-client",
+            forward_frames_to_monitoring,
+            monitoring_buffer,
+            state,
+            logger,
+            stop_event,
+            MONITORING_URL,
+            MONITORING_TIMEOUT,
+        ),
+        start_worker(
+            "db-writer",
+            store_ai_results,
+            db_buffer,
+            state,
+            logger,
+            stop_event,
+            DB_CONFIG,
+            DB_RETRY_INTERVAL,
+        ),
+    ]
+
+    try:
+        app.run(
+            host=STATUS_HOST,
+            port=STATUS_PORT,
+            debug=False,
+            threaded=True,
+            use_reloader=False,
+        )
+    finally:
+        stop_event.set()
+        for worker in workers:
+            worker.join(timeout=1.5)
+        log_listener.stop()
 
 
 if __name__ == "__main__":
-    log_listener = configure_logging()
-    threading.Thread(target=receive_frames, daemon=True).start()
-    threading.Thread(target=forward_frames_to_ai, daemon=True).start()
-    threading.Thread(target=forward_frames_to_qt, daemon=True).start()
-    try:
-        app.run(host="0.0.0.0", port=5000, debug=False)
-    finally:
-        log_listener.stop()
+    main()
