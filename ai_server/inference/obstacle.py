@@ -1,14 +1,11 @@
 from ultralytics import YOLO
 from inference.model_files import ensure_models
-import threading
 
 def load_obstacle_model():
     ckpt_path = ensure_models() / "obstacle.pt"
     model = YOLO(str(ckpt_path))
     model.to("cuda")
     return model
-
-_lock = threading.Lock()
 
 CLASS_NAME_MAP = {
     "toy_person": "people",
@@ -18,8 +15,7 @@ CLASS_NAME_MAP = {
 
 
 def run_obstacle(model, image):
-    with _lock:
-        result = model.track(image, persist=True, tracker="bytetrack.yaml", verbose=False)
+    result = model.track(image, persist=True, tracker="bytetrack.yaml", verbose=False)
     return post_process_obstacle(result)
 
 def post_process_obstacle(result):

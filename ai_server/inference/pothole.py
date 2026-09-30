@@ -4,20 +4,11 @@ from inference.model_files import ensure_models
 from risk_level_module import risk_level
 
 
-import threading
-
 def load_pothole_model():
     ckpt_path = ensure_models() / "pothole.pt"
     model = YOLO(str(ckpt_path))
     model.to("cuda")
     return model
-
-_lock = threading.Lock()
-
-def run_pothole(model, image):
-    with _lock:
-        result = model.track(image, persist=True, tracker="bytetrack.yaml", verbose=False)
-    return post_process_pothole(result, image)
 
 def post_process_pothole(result, image):
     boxes = [b for b in result[0].boxes if b.id is not None]
@@ -33,4 +24,5 @@ def post_process_pothole(result, image):
             "b_box": {"x_min": x1, "y_min": y1, "x_max": x2, "y_max": y2},
             "area": area
         })
+
     return {"pothole": detections}
