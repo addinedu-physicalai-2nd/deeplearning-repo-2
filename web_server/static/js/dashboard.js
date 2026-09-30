@@ -58,6 +58,7 @@ const urls = {
   summary: body.dataset.summaryUrl,
   status: body.dataset.statusUrl,
   table: body.dataset.tableUrl,
+  databaseReset: body.dataset.databaseResetUrl,
 };
 
 const elements = {
@@ -71,7 +72,7 @@ const elements = {
   updated: document.querySelector("#last-updated"),
   filterForm: document.querySelector("#filter-form"),
   filterInput: document.querySelector("#frame-filter"),
-  filterReset: document.querySelector("#filter-reset"),
+  databaseReset: document.querySelector("#database-reset"),
   pageSize: document.querySelector("#page-size"),
   previousPage: document.querySelector("#previous-page"),
   nextPage: document.querySelector("#next-page"),
@@ -300,11 +301,42 @@ elements.filterForm.addEventListener("submit", (event) => {
   refreshDashboard(true);
 });
 
-elements.filterReset.addEventListener("click", () => {
-  elements.filterInput.value = "";
-  state.frame = "";
-  state.page = 1;
-  refreshDashboard(true);
+elements.databaseReset.addEventListener("click", async () => {
+  const confirmed = window.confirm(
+    "모든 테이블의 검출 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  elements.databaseReset.disabled = true;
+  clearError();
+  try {
+    const response = await fetch(urls.databaseReset, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ confirmation: "DELETE_ALL_DATA" }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || `HTTP ${response.status}`);
+    }
+
+    elements.filterInput.value = "";
+    state.frame = "";
+    state.page = 1;
+    await refreshDashboard(true);
+    window.alert(
+      `DB 초기화가 완료되었습니다. 총 ${Number(payload.deleted_rows || 0).toLocaleString("ko-KR")}개 행을 삭제했습니다.`,
+    );
+  } catch (error) {
+    showError(error.message || "DB 데이터를 초기화하지 못했습니다.");
+  } finally {
+    elements.databaseReset.disabled = false;
+  }
 });
 
 elements.pageSize.addEventListener("change", () => {

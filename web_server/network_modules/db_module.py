@@ -101,6 +101,15 @@ DASHBOARD_TABLES = {
     ),
 }
 
+DELETE_ORDER = (
+    "pothole",
+    "people",
+    "trafficCone",
+    "car",
+    "lane",
+    "frame_summary",
+)
+
 
 def format_b_box(b_box):
     """좌표 객체를 DB 규격인 [(x1,y1),(x2,y2)] 문자열로 바꾼다."""
@@ -282,6 +291,32 @@ def fetch_dashboard_summary(db_config):
         connection.close()
 
 
+def delete_all_detection_data(
+    db_config,
+    connection_factory=mysql.connector.connect,
+):
+    """Dashboard에서 사용하는 모든 테이블의 데이터를 삭제한다."""
+    connection = connection_factory(**db_config)
+    cursor = connection.cursor()
+    deleted = {}
+    try:
+        for table_name in DELETE_ORDER:
+            cursor.execute(f"DELETE FROM `{table_name}`")
+            deleted[table_name] = max(cursor.rowcount, 0)
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        cursor.close()
+        connection.close()
+
+    return {
+        "deleted": deleted,
+        "deleted_rows": sum(deleted.values()),
+    }
+
+
 def fetch_table_page(
     db_config,
     table_name,
@@ -348,6 +383,7 @@ def store_ai_results(
     stop_event,
     db_config,
     retry_interval=5.0,
+    operation_lock=None,
 ):
     """DB에 연결하고 큐로 전달된 AI 결과를 순서대로 저장한다."""
     connection = None
@@ -374,37 +410,43 @@ def store_ai_results(
                 stop_event.wait(retry_interval)
                 continue
 
+        if operation_lock is not None:
+            operation_lock.acquire()
         try:
-            frame_id, ai_result = db_buffer.get(timeout=0.5)
-        except queue.Empty:
-            continue
-
-        state.update(db_buffer_size=db_buffer.qsize())
-        try:
-            insert_ai_result(connection, frame_id, ai_result)
-            state.update(
-                db_connected=True,
-                db_frame_id=frame_id,
-                db_error=None,
-            )
-            logger.info("Frame %s stored in MySQL", frame_id)
-        except (KeyError, TypeError, ValueError) as error:
-            state.update(db_error=f"frame {frame_id}: {error}")
-            logger.error("Invalid DB data for frame %s: %s", frame_id, error)
-        except Exception as error:
-            state.update(
-                db_connected=False,
-                db_error=f"frame {frame_id}: {error}",
-            )
-            logger.error("Failed to store frame %s in MySQL: %s", frame_id, error)
             try:
-                connection.close()
-            except Exception:
-                pass
-            connection = None
-        finally:
-            db_buffer.task_done()
+                frame_id, ai_result = db_buffer.get(timeout=0.5)
+            except queue.Empty:
+                continue
+
             state.update(db_buffer_size=db_buffer.qsize())
+            try:
+                insert_ai_result(connection, frame_id, ai_result)
+                state.update(
+                    db_connected=True,
+                    db_frame_id=frame_id,
+                    db_error=None,
+                )
+                logger.info("Frame %s stored in MySQL", frame_id)
+            except (KeyError, TypeError, ValueError) as error:
+                state.update(db_error=f"frame {frame_id}: {error}")
+                logger.error("Invalid DB data for frame %s: %s", frame_id, error)
+            except Exception as error:
+                state.update(
+                    db_connected=False,
+                    db_error=f"frame {frame_id}: {error}",
+                )
+                logger.error("Failed to store frame %s in MySQL: %s", frame_id, error)
+                try:
+                    connection.close()
+                except Exception:
+                    pass
+                connection = None
+            finally:
+                db_buffer.task_done()
+                state.update(db_buffer_size=db_buffer.qsize())
+        finally:
+            if operation_lock is not None:
+                operation_lock.release()
 
     if connection is not None:
         connection.close()

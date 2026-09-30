@@ -8,6 +8,7 @@ from flask import Flask, jsonify, render_template, request
 
 from web_server.network_modules.ai_module import forward_frames_to_ai
 from web_server.network_modules.db_module import (
+    delete_all_detection_data,
     fetch_dashboard_summary,
     fetch_table_page,
     store_ai_results,
@@ -45,6 +46,7 @@ DB_PASSWORD = "1234"
 DB_NAME = "road_gaurd"
 DB_BUFFER_SIZE = 100
 DB_RETRY_INTERVAL = 5.0
+DB_RESET_CONFIRMATION = "DELETE_ALL_DATA"
 DB_CONFIG = {
     "host": DB_HOST,
     "port": DB_PORT,
@@ -96,6 +98,7 @@ state = RuntimeState()
 frame_buffer = queue.Queue(maxsize=FRAME_BUFFER_SIZE)
 monitoring_buffer = queue.Queue(maxsize=MONITORING_BUFFER_SIZE)
 db_buffer = queue.Queue(maxsize=DB_BUFFER_SIZE)
+db_operation_lock = threading.Lock()
 
 
 @app.get("/")
@@ -115,6 +118,53 @@ def dashboard_summary():
     except Exception as error:
         app.logger.error("Failed to read dashboard summary: %s", error)
         return jsonify({"error": "DB 요약 데이터를 조회하지 못했습니다."}), 503
+
+
+def discard_queued_db_results():
+    """초기화 이전에 대기 중이던 DB 저장 항목을 제거한다."""
+    discarded = 0
+    while True:
+        try:
+            db_buffer.get_nowait()
+        except queue.Empty:
+            return discarded
+        db_buffer.task_done()
+        discarded += 1
+
+
+@app.post("/api/database/reset")
+def reset_database():
+    payload = request.get_json(silent=True) or {}
+    if payload.get("confirmation") != DB_RESET_CONFIRMATION:
+        return jsonify({"error": "DB 초기화 확인값이 올바르지 않습니다."}), 400
+
+    try:
+        with db_operation_lock:
+            result = delete_all_detection_data(DB_CONFIG)
+            discarded = discard_queued_db_results()
+    except Exception as error:
+        app.logger.error("Failed to reset database: %s", error)
+        state.update(db_error=str(error))
+        return jsonify({"error": "DB 데이터를 초기화하지 못했습니다."}), 503
+
+    state.update(
+        db_connected=True,
+        db_frame_id=None,
+        db_buffer_size=db_buffer.qsize(),
+        db_error=None,
+    )
+    app.logger.warning(
+        "All dashboard data deleted: %s rows, %s queued results discarded",
+        result["deleted_rows"],
+        discarded,
+    )
+    return jsonify(
+        {
+            "status": "deleted",
+            **result,
+            "discarded_queued_results": discarded,
+        }
+    )
 
 
 @app.get("/api/tables/<table_name>")
@@ -208,6 +258,7 @@ def main():
             stop_event,
             DB_CONFIG,
             DB_RETRY_INTERVAL,
+            db_operation_lock,
         ),
     ]
 

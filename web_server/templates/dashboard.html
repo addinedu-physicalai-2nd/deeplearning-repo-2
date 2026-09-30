@@ -11,6 +11,7 @@
   data-summary-url="{{ url_for('dashboard_summary') }}"
   data-status-url="{{ url_for('status') }}"
   data-table-url="{{ url_for('table_data', table_name='TABLE_NAME') }}"
+  data-database-reset-url="{{ url_for('reset_database') }}"
 >
   <div class="page">
     <aside class="navbar navbar-vertical navbar-expand-lg dashboard-sidebar" data-bs-theme="dark">
@@ -216,7 +217,12 @@
                   <option value="100">100개</option>
                 </select>
                 <button class="btn btn-outline-primary" type="submit">검색</button>
-                <button class="btn btn-ghost-secondary" id="filter-reset" type="button">초기화</button>
+                <button
+                  class="btn btn-outline-danger"
+                  id="database-reset"
+                  type="button"
+                  title="모든 검출 데이터를 삭제합니다"
+                >DB 초기화</button>
               </form>
             </div>
 
