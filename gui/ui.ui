@@ -1,0 +1,793 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+
+ <class>MainWindow</class>
+
+ <widget class="QMainWindow" name="MainWindow">
+
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1600</width>
+    <height>900</height>
+   </rect>
+  </property>
+
+  <property name="minimumSize">
+   <size>
+    <width>1150</width>
+    <height>700</height>
+   </size>
+  </property>
+
+  <property name="windowTitle">
+   <string>AI Driving Assistance</string>
+  </property>
+
+  <property name="styleSheet">
+   <string notr="true">
+
+/* ========================================================= */
+/* MAIN                                                      */
+/* ========================================================= */
+
+QMainWindow {
+    background-color: #07111F;
+}
+
+QWidget#centralwidget {
+    background-color: #07111F;
+}
+
+
+/* ========================================================= */
+/* TOP BAR                                                   */
+/* ========================================================= */
+
+QFrame#topFrame {
+    background-color: #0B1728;
+    border-bottom: 1px solid #1D314A;
+}
+
+QLabel#titleLabel {
+    color: #FFFFFF;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+QLabel#subTitleLabel {
+    color: #5E9CFF;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+QLabel#statusDot {
+    color: #39D98A;
+    font-size: 19px;
+}
+
+QLabel#statusLabel {
+    color: #B8C7D8;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+
+/* ========================================================= */
+/* VIDEO                                                     */
+/* ========================================================= */
+
+QFrame#videoFrame {
+    background-color: #02060B;
+    border: 1px solid #203650;
+    border-radius: 12px;
+}
+
+QLabel#videoLabel {
+    background-color: #010409;
+    color: #53677C;
+    border-radius: 9px;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+
+/* ========================================================= */
+/* BOTTOM PANEL                                              */
+/* ========================================================= */
+
+QFrame#bottomFrame {
+    background-color: #0B1728;
+    border: 1px solid #1D314A;
+    border-radius: 12px;
+}
+
+QLabel#assistLabel {
+    color: #778DA6;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+QLabel#fpsTitleLabel {
+    color: #7D91A7;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+QLabel#fpsValueLabel {
+    color: #FFFFFF;
+    font-size: 27px;
+    font-weight: 700;
+}
+
+QLabel#fpsUnitLabel {
+    color: #60758B;
+    font-size: 11px;
+}
+
+
+/* ========================================================= */
+/* FEATURE BUTTONS - OFF                                     */
+/* ========================================================= */
+
+QPushButton#laneButton,
+QPushButton#obstacleButton,
+QPushButton#hazardButton {
+    background-color: #111F31;
+    color: #8799AC;
+
+    border: 1px solid #243B55;
+    border-radius: 10px;
+
+    padding: 6px 16px;
+
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton#laneButton:hover,
+QPushButton#obstacleButton:hover,
+QPushButton#hazardButton:hover {
+    background-color: #172A40;
+    border: 1px solid #3A5C80;
+    color: #D9E6F4;
+}
+
+
+/* ========================================================= */
+/* FEATURE BUTTONS - ON                                      */
+/* ========================================================= */
+
+QPushButton#laneButton:checked,
+QPushButton#obstacleButton:checked,
+QPushButton#hazardButton:checked {
+    background-color: #1769E0;
+    color: #FFFFFF;
+
+    border: 1px solid #3B8CFF;
+    border-bottom: 3px solid #0A51BA;
+}
+
+
+/* ========================================================= */
+/* DASHCAM OFF                                               */
+/* ========================================================= */
+
+QPushButton#dashcamButton {
+    background-color: #111F31;
+    color: #8799AC;
+
+    border: 1px solid #243B55;
+    border-radius: 10px;
+
+    padding: 6px 16px;
+
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton#dashcamButton:hover {
+    background-color: #172A40;
+    border: 1px solid #5A3B43;
+    color: #FFFFFF;
+}
+
+
+/* ========================================================= */
+/* DASHCAM ON                                                */
+/* ========================================================= */
+
+QPushButton#dashcamButton:checked {
+    background-color: #C93645;
+    color: #FFFFFF;
+
+    border: 1px solid #F05B68;
+    border-bottom: 3px solid #8F1F2A;
+}
+
+   </string>
+  </property>
+
+
+  <!-- ===================================================== -->
+  <!-- CENTRAL WIDGET                                        -->
+  <!-- ===================================================== -->
+
+  <widget class="QWidget" name="centralwidget">
+
+   <layout class="QVBoxLayout" name="mainLayout">
+
+    <property name="spacing">
+     <number>12</number>
+    </property>
+
+    <property name="leftMargin">
+     <number>16</number>
+    </property>
+
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+
+    <property name="rightMargin">
+     <number>16</number>
+    </property>
+
+    <property name="bottomMargin">
+     <number>16</number>
+    </property>
+
+
+    <!-- =================================================== -->
+    <!-- TOP BAR                                             -->
+    <!-- =================================================== -->
+
+    <item>
+
+     <widget class="QFrame" name="topFrame">
+
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>68</height>
+       </size>
+      </property>
+
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>68</height>
+       </size>
+      </property>
+
+
+      <layout class="QHBoxLayout" name="topLayout">
+
+       <property name="leftMargin">
+        <number>20</number>
+       </property>
+
+       <property name="rightMargin">
+        <number>20</number>
+       </property>
+
+
+       <!-- TITLE -->
+
+       <item>
+
+        <layout class="QVBoxLayout" name="titleLayout">
+
+         <property name="spacing">
+          <number>1</number>
+         </property>
+
+
+         <item>
+
+          <widget class="QLabel" name="titleLabel">
+
+           <property name="text">
+            <string>AI Driving Assistance</string>
+           </property>
+
+          </widget>
+
+         </item>
+
+
+         <item>
+
+          <widget class="QLabel" name="subTitleLabel">
+
+           <property name="text">
+            <string>REAL-TIME PERCEPTION SYSTEM</string>
+           </property>
+
+          </widget>
+
+         </item>
+
+        </layout>
+
+       </item>
+
+
+       <!-- SPACER -->
+
+       <item>
+
+        <spacer name="topSpacer">
+
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+
+        </spacer>
+
+       </item>
+
+
+       <!-- STATUS DOT -->
+
+       <item>
+
+        <widget class="QLabel" name="statusDot">
+
+         <property name="text">
+          <string>●</string>
+         </property>
+
+        </widget>
+
+       </item>
+
+
+       <!-- STATUS -->
+
+       <item>
+
+        <widget class="QLabel" name="statusLabel">
+
+         <property name="text">
+          <string>Waiting for camera...</string>
+         </property>
+
+        </widget>
+
+       </item>
+
+
+      </layout>
+
+     </widget>
+
+    </item>
+
+
+    <!-- =================================================== -->
+    <!-- VIDEO AREA                                          -->
+    <!-- =================================================== -->
+
+    <item>
+
+     <widget class="QFrame" name="videoFrame">
+
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>1</horstretch>
+        <verstretch>1</verstretch>
+       </sizepolicy>
+      </property>
+
+
+      <layout class="QVBoxLayout" name="videoLayout">
+
+       <property name="leftMargin">
+        <number>8</number>
+       </property>
+
+       <property name="topMargin">
+        <number>8</number>
+       </property>
+
+       <property name="rightMargin">
+        <number>8</number>
+       </property>
+
+       <property name="bottomMargin">
+        <number>8</number>
+       </property>
+
+
+       <item>
+
+        <widget class="QLabel" name="videoLabel">
+
+         <property name="minimumSize">
+          <size>
+           <width>900</width>
+           <height>500</height>
+          </size>
+         </property>
+
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>1</horstretch>
+           <verstretch>1</verstretch>
+          </sizepolicy>
+         </property>
+
+         <property name="text">
+          <string>WAITING FOR CAMERA STREAM</string>
+         </property>
+
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+
+         <property name="scaledContents">
+          <bool>false</bool>
+         </property>
+
+        </widget>
+
+       </item>
+
+      </layout>
+
+     </widget>
+
+    </item>
+
+
+    <!-- =================================================== -->
+    <!-- CONTROL PANEL                                       -->
+    <!-- =================================================== -->
+
+    <item>
+
+     <widget class="QFrame" name="bottomFrame">
+
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>105</height>
+       </size>
+      </property>
+
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>105</height>
+       </size>
+      </property>
+
+
+      <layout class="QHBoxLayout" name="bottomLayout">
+
+       <property name="spacing">
+        <number>12</number>
+       </property>
+
+       <property name="leftMargin">
+        <number>22</number>
+       </property>
+
+       <property name="topMargin">
+        <number>13</number>
+       </property>
+
+       <property name="rightMargin">
+        <number>22</number>
+       </property>
+
+       <property name="bottomMargin">
+        <number>13</number>
+       </property>
+
+
+       <!-- =============================================== -->
+       <!-- LEFT TITLE                                      -->
+       <!-- =============================================== -->
+
+       <item>
+
+        <widget class="QLabel" name="assistLabel">
+
+         <property name="minimumSize">
+          <size>
+           <width>90</width>
+           <height>0</height>
+          </size>
+         </property>
+
+         <property name="text">
+          <string>DRIVING
+ASSIST</string>
+         </property>
+
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+
+        </widget>
+
+       </item>
+
+
+       <!-- =============================================== -->
+       <!-- LANE                                            -->
+       <!-- =============================================== -->
+
+       <item>
+
+        <widget class="QPushButton" name="laneButton">
+
+         <property name="minimumSize">
+          <size>
+           <width>165</width>
+           <height>62</height>
+          </size>
+         </property>
+
+         <property name="text">
+          <string>LANE
+DETECTION</string>
+         </property>
+
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+
+        </widget>
+
+       </item>
+
+
+       <!-- =============================================== -->
+       <!-- OBSTACLE                                        -->
+       <!-- =============================================== -->
+
+       <item>
+
+        <widget class="QPushButton" name="obstacleButton">
+
+         <property name="minimumSize">
+          <size>
+           <width>165</width>
+           <height>62</height>
+          </size>
+         </property>
+
+         <property name="text">
+          <string>OBSTACLE
+DETECTION</string>
+         </property>
+
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+
+        </widget>
+
+       </item>
+
+
+       <!-- =============================================== -->
+       <!-- ROAD HAZARD                                     -->
+       <!-- =============================================== -->
+
+       <item>
+
+        <widget class="QPushButton" name="hazardButton">
+
+         <property name="minimumSize">
+          <size>
+           <width>165</width>
+           <height>62</height>
+          </size>
+         </property>
+
+         <property name="text">
+          <string>ROAD HAZARD
+DETECTION</string>
+         </property>
+
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+
+        </widget>
+
+       </item>
+
+
+       <!-- =============================================== -->
+       <!-- DASHCAM                                         -->
+       <!-- =============================================== -->
+
+       <item>
+
+        <widget class="QPushButton" name="dashcamButton">
+
+         <property name="minimumSize">
+          <size>
+           <width>155</width>
+           <height>62</height>
+          </size>
+         </property>
+
+         <property name="text">
+          <string>DASHCAM
+RECORDING</string>
+         </property>
+
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+
+        </widget>
+
+       </item>
+
+
+       <!-- =============================================== -->
+       <!-- SPACER                                          -->
+       <!-- =============================================== -->
+
+       <item>
+
+        <spacer name="bottomSpacer">
+
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+
+        </spacer>
+
+       </item>
+
+
+       <!-- =============================================== -->
+       <!-- FPS                                             -->
+       <!-- =============================================== -->
+
+       <item>
+
+        <layout class="QVBoxLayout" name="fpsLayout">
+
+         <property name="spacing">
+          <number>0</number>
+         </property>
+
+
+         <item>
+
+          <widget class="QLabel" name="fpsTitleLabel">
+
+           <property name="text">
+            <string>FPS</string>
+           </property>
+
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+
+          </widget>
+
+         </item>
+
+
+         <item>
+
+          <widget class="QLabel" name="fpsValueLabel">
+
+           <property name="minimumSize">
+            <size>
+             <width>80</width>
+             <height>35</height>
+            </size>
+           </property>
+
+           <property name="text">
+            <string>0.0</string>
+           </property>
+
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+
+          </widget>
+
+         </item>
+
+
+         <item>
+
+          <widget class="QLabel" name="fpsUnitLabel">
+
+           <property name="text">
+            <string>frames/s</string>
+           </property>
+
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+
+          </widget>
+
+         </item>
+
+        </layout>
+
+       </item>
+
+
+      </layout>
+
+     </widget>
+
+    </item>
+
+
+   </layout>
+
+  </widget>
+
+
+  <!-- ===================================================== -->
+  <!-- STATUS BAR DISABLED                                   -->
+  <!-- ===================================================== -->
+
+  <widget class="QStatusBar" name="statusbar">
+
+   <property name="maximumSize">
+    <size>
+     <width>16777215</width>
+     <height>0</height>
+    </size>
+   </property>
+
+  </widget>
+
+
+ </widget>
+
+
+ <resources/>
+
+ <connections/>
+
+</ui>
