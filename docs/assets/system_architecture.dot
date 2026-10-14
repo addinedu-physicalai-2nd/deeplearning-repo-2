@@ -1,0 +1,49 @@
+digraph RoadGuard {
+  graph [
+    rankdir=TB,
+    bgcolor="transparent",
+    pad="0.25",
+    nodesep="0.35",
+    ranksep="0.60",
+    splines=ortho,
+    fontname="NanumBarunGothic"
+  ];
+  node [
+    shape=box,
+    style="rounded,filled",
+    fillcolor="#f6f8fa",
+    color="#8c959f",
+    fontcolor="#1f2328",
+    fontname="NanumBarunGothic",
+    fontsize=11,
+    margin="0.15,0.10"
+  ];
+  edge [color="#57606a", arrowsize=0.7, penwidth=1.2];
+
+  robot [label="Robot Camera\nROS 2 Image"];
+  sender [label="UDP Sender\nJPEG chunks"];
+  web [label="Web Server\nUDP :5005", fillcolor="#ddf4ff", color="#54aeff"];
+  ai [label="AI Server\nFastAPI :8000", fillcolor="#fff8c5", color="#d4a72c"];
+  lane [label="DeepLabV3+\nLane"];
+  object [label="YOLO + ByteTrack\nPeople · Car · Cone"];
+  pothole [label="YOLO + Homography\nPothole · Risk"];
+  merge [label="Detection JSON", fillcolor="#dafbe1", color="#4ac26b"];
+  gui [label="PyQt Monitoring\nHTTP :5006"];
+  db [label="MySQL\nroad_gaurd"];
+  dashboard [label="Web Dashboard\nHTTP :5000"];
+
+  robot -> sender -> web -> ai;
+  ai -> lane;
+  ai -> object;
+  ai -> pothole;
+  lane -> merge;
+  object -> merge;
+  pothole -> merge;
+  merge -> gui;
+  merge -> db;
+  db -> dashboard;
+  web -> dashboard [style=dashed];
+
+  { rank=same; lane; object; pothole; }
+  { rank=same; gui; db; dashboard; }
+}
