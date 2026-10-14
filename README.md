@@ -91,13 +91,6 @@ Road Guard는 로봇 카메라 영상을 실시간으로 수집하고, 차선·�
 ### 도로 객체 인식
 
 사람, 차량, 교통콘은 Ultralytics YOLO와 ByteTrack을 이용해 검출하고 추적합니다.
-
-| 모델 원본 클래스 | 시스템 출력 키 |
-| --- | --- |
-| `toy_person` | `people` |
-| `toy_car` | `car` |
-| `cone` | `trafficCone` |
-
 ByteTrack이 추적 ID를 확정한 객체만 결과에 포함되며, 동일 객체는 연속 프레임에서 가능한 한 같은 `sequence_id`를 유지합니다.
 
 ### 포트홀 검출
@@ -369,22 +362,6 @@ deeplearning-repo-2/
 - Ultralytics, `segmentation-models-pytorch`
 - PyQt6, `mysql-connector-python`, gdown
 
-객체 및 포트홀 모델은 코드에서 명시적으로 CUDA 장치로 이동하므로 현재 구현 기준으로 NVIDIA GPU와 CUDA 환경이 필요합니다.
-
-현재 저장소에는 고정된 의존성 파일이 없으므로 아래 명령은 개발 환경 구성을 위한 예시입니다. PyTorch는 사용하는 CUDA 버전에 맞는 공식 Wheel을 먼저 설치하는 것을 권장합니다.
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-
-pip install \
-  fastapi "uvicorn[standard]" python-multipart \
-  opencv-python numpy torch torchvision \
-  segmentation-models-pytorch ultralytics gdown \
-  flask requests mysql-connector-python PyQt6
-```
-
-`rclpy`와 `sensor_msgs`는 사용하는 ROS 2 배포판을 통해 설치해야 합니다.
 
 ### 네트워크와 서비스 설정
 
@@ -398,12 +375,6 @@ pip install \
 | MySQL DB | `localhost:3306/road_gaurd` | `web_server/web_server.py` |
 | ROS 2 Topic | `/ascamera/camera_publisher/rgb0/image` | `robot/udp_image_sender.py` |
 
-```bash
-export AI_URL="http://127.0.0.1:8000/inference"
-export MONITORING_URL="http://127.0.0.1:5006/frame"
-```
-
-> `road_gaurd`는 현재 코드에 사용된 데이터베이스 이름입니다. `guard`가 아닌 `gaurd`인 점에 주의하세요.
 
 ### 모델 파일
 
@@ -413,61 +384,3 @@ ai_server/models/
 ├── pothole.pt
 └── <lane-model>.pth
 ```
-
-모델 파일이 없으면 `model_drive_link.txt`에 지정된 Google Drive 폴더에서 자동으로 다운로드합니다. `.pt`와 `.pth` 파일은 Git 추적 대상에서 제외되어 있습니다.
-
-## 실행 방법
-
-### 1. MySQL 준비
-
-`road_gaurd` 데이터베이스와 다음 테이블이 필요합니다.
-
-```text
-frame_summary, pothole, people, trafficCone, car, lane
-```
-
-현재 저장소에는 테이블 생성 SQL이 포함되어 있지 않으므로 별도의 Schema 생성이 필요합니다.
-
-### 2. PyQt 모니터링 실행
-
-```bash
-python3 gui/monitoring.py
-```
-
-PyQt 프로그램은 `0.0.0.0:5006/frame`에서 웹 서버의 전송을 기다립니다.
-
-### 3. AI 서버 실행
-
-```bash
-cd ai_server
-uvicorn main:app --host 0.0.0.0 --port 8000
-```
-
-서버 시작 시 차선, 객체, 포트홀 모델을 메모리에 로드합니다.
-
-### 4. 웹 서버 실행
-
-저장소 루트에서 실행합니다.
-
-```bash
-python3 -m web_server.web_server
-```
-
-Dashboard 주소는 `http://localhost:5000`입니다.
-
-### 5. 로봇 영상 송신 실행
-
-`robot/udp_image_sender.py`의 `server_addr`를 웹 서버 주소에 맞게 설정한 후 실행합니다.
-
-```bash
-source /opt/ros/$ROS_DISTRO/setup.bash
-python3 robot/udp_image_sender.py
-```
-
-### 시스템 상태 확인
-
-```bash
-curl http://localhost:5000/status
-```
-
-상태 API에서는 마지막 Robot 수신 프레임, AI 처리 프레임, PyQt 전송 프레임, DB 저장 프레임, 연결 오류, 큐 크기와 누적 Drop 수를 확인할 수 있습니다.
